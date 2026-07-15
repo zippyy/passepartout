@@ -2,26 +2,36 @@
 //
 // SPDX-License-Identifier: GPL-3.0
 
+import CommonLibrary
 import CryptoKit
 import Foundation
 
 enum CouponCodeUnlocker {
-    private static let redemptionKey = "couponCodeUnlocker.isRedeemed"
-
     static var isRedeemed: Bool {
-        isRedeemed(in: .standard)
+        if CouponEntitlement.isRedeemed() {
+            return true
+        }
+        guard let sharedDefaults, CouponEntitlement.isRedeemed(in: sharedDefaults) else {
+            return false
+        }
+        CouponEntitlement.setRedeemed()
+        return true
     }
 
     static func isRedeemed(in defaults: UserDefaults) -> Bool {
-        defaults.bool(forKey: redemptionKey)
+        CouponEntitlement.isRedeemed(in: defaults)
     }
 
     @discardableResult
     static func redeem(_ code: String) -> Bool {
-        guard let expectedHash = configuredHash else {
+        guard let expectedHash = configuredHash,
+              redeem(code, expectedHash: expectedHash, defaults: .standard) else {
             return false
         }
-        return redeem(code, expectedHash: expectedHash, defaults: .standard)
+        if let sharedDefaults {
+            CouponEntitlement.setRedeemed(in: sharedDefaults)
+        }
+        return true
     }
 
     @discardableResult
@@ -33,7 +43,7 @@ enum CouponCodeUnlocker {
         guard hash(code) == expectedHash.lowercased() else {
             return false
         }
-        defaults.set(true, forKey: redemptionKey)
+        CouponEntitlement.setRedeemed(in: defaults)
         return true
     }
 
@@ -44,13 +54,23 @@ enum CouponCodeUnlocker {
 }
 
 private extension CouponCodeUnlocker {
+    static var appConfig: [String: Any]? {
+        Bundle.main.object(forInfoDictionaryKey: "AppConfig") as? [String: Any]
+    }
+
     static var configuredHash: String? {
-        guard let appConfig = Bundle.main.object(forInfoDictionaryKey: "AppConfig") as? [String: Any],
-              let value = appConfig["couponCodeHash"] as? String else {
+        guard let value = appConfig?["couponCodeHash"] as? String else {
             return nil
         }
         let hash = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         return hash.isEmpty ? nil : hash
+    }
+
+    static var sharedDefaults: UserDefaults? {
+        guard let groupId = appConfig?["groupId"] as? String, !groupId.isEmpty else {
+            return nil
+        }
+        return UserDefaults(suiteName: groupId)
     }
 
     static func normalized(_ code: String) -> String {
