@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0
 
 #if canImport(CommonLibraryApple)
+import Foundation
 import NetworkExtension
 import Partout
 
@@ -114,7 +115,13 @@ extension TunnelABI {
             betaChecker: appConfiguration.newBetaChecker()
         )
         await iapManager.fetchLevelIfNeeded()
-        let skipsPurchases = !appConfiguration.bundle.distributionTarget.supportsIAP || preferences[\.skipsPurchases]
+        let couponDefaults = UserDefaults(
+            suiteName: appConfiguration.bundle.bundleString(for: .groupId)
+        )
+        let hasCoupon = couponDefaults.map {
+            CouponEntitlement.isRedeemed(in: $0)
+        } ?? false
+        let skipsPurchases = hasCoupon || !appConfiguration.bundle.distributionTarget.supportsIAP || preferences[\.skipsPurchases]
         let verificationParameters = appConfiguration.constants.tunnel.verificationParameters(isBeta: iapManager.isBeta)
         // Relax verification strategy based on AppPreference
         let usesRelaxedVerification = preferences[\.relaxedVerification]
