@@ -137,7 +137,10 @@ extension ProfileObservable {
     }
 
     public func requiredFeatures(forProfileWithId profileId: Profile.ID) -> Set<ABI.AppFeature>? {
-        allHeaders[profileId]?.requiredFeatures
+        guard !CouponCodeUnlocker.isRedeemed else {
+            return nil
+        }
+        return allHeaders[profileId]?.requiredFeatures
     }
 
     public var isSearching: Bool {
