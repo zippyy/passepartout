@@ -26,6 +26,9 @@ public struct PurchasedView: View {
     private var couponMessage: String?
 
     @State
+    private var isRedeemingCoupon = false
+
+    @State
     private var errorHandler: ErrorHandler = .default()
 
     public init() {
@@ -87,7 +90,7 @@ private extension PurchasedView {
             productsSection
             featuresSection
             couponSection
-            if appConfiguration.bundle.distributionTarget.supportsIAP && !iapObservable.isBeta {
+            if appConfiguration.bundle.distributionTarget.supportsIAP && !iapObservable.isBeta && !iapObservable.isCouponUnlocked {
                 restoreSection
             }
         }
@@ -141,9 +144,14 @@ private extension PurchasedView {
             } else {
                 TextField("Coupon code", text: $couponCode)
                 Button("Redeem coupon") {
-                    redeemCoupon()
+                    Task {
+                        await redeemCoupon()
+                    }
                 }
-                .disabled(couponCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .disabled(
+                    isRedeemingCoupon ||
+                    couponCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                )
 
                 if let couponMessage {
                     Text(couponMessage)
@@ -168,8 +176,11 @@ private extension PurchasedView {
             )
     }
 
-    func redeemCoupon() {
-        if iapObservable.redeemCoupon(couponCode) {
+    func redeemCoupon() async {
+        isRedeemingCoupon = true
+        defer { isRedeemingCoupon = false }
+
+        if await iapObservable.redeemCoupon(couponCode) {
             couponCode = ""
             couponMessage = nil
         } else {
