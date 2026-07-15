@@ -23,13 +23,14 @@ public final class IAPObservable {
     public init(iapManager: IAPManager, supportsIAP: Bool) {
         self.iapManager = iapManager
         self.supportsIAP = supportsIAP
+        let couponUnlocked = CouponCodeUnlocker.isRedeemed
         isEnabled = true
         isLoadingReceipt = true
         isBeta = false
         purchasedProducts = []
-        eligibleFeatures = []
+        eligibleFeatures = couponUnlocked ? Set(ABI.AppFeature.allCases) : []
         isEligibleForComplete = false
-        isEligibleForFeedback = false
+        isEligibleForFeedback = couponUnlocked
     }
 }
 
@@ -45,6 +46,9 @@ extension IAPObservable {
     }
 
     public func verify(_ profile: Profile, extra: Set<ABI.AppFeature>?) throws {
+        guard !CouponCodeUnlocker.isRedeemed else {
+            return
+        }
         try iapManager.verify(profile, extra: extra)
     }
 
@@ -54,6 +58,16 @@ extension IAPObservable {
 
     public func restorePurchases() async throws {
         try await iapManager.restorePurchases()
+    }
+
+    @discardableResult
+    public func redeemCoupon(_ code: String) async -> Bool {
+        guard CouponCodeUnlocker.redeem(code) else {
+            return false
+        }
+        applyCouponUnlock()
+        await iapManager.reloadReceipt()
+        return true
     }
 }
 
@@ -73,6 +87,10 @@ extension IAPObservable {
 
     public var verificationDelayMinutes: Int {
         iapManager.verificationDelayMinutes
+    }
+
+    public var isCouponUnlocked: Bool {
+        CouponCodeUnlocker.isRedeemed
     }
 
     public func isEligible(for feature: ABI.AppFeature) -> Bool {
@@ -106,9 +124,21 @@ extension IAPObservable {
             purchasedProducts = payload.products
             isBeta = payload.isBeta
         case .eligibleFeatures(let payload):
-            eligibleFeatures = Set(payload.features)
-            isEligibleForComplete = payload.forComplete
-            isEligibleForFeedback = payload.forFeedback
+            if CouponCodeUnlocker.isRedeemed {
+                applyCouponUnlock()
+            } else {
+                eligibleFeatures = Set(payload.features)
+                isEligibleForComplete = payload.forComplete
+                isEligibleForFeedback = payload.forFeedback
+            }
         }
+    }
+}
+
+private extension IAPObservable {
+    func applyCouponUnlock() {
+        eligibleFeatures = Set(ABI.AppFeature.allCases)
+        isEligibleForComplete = false
+        isEligibleForFeedback = true
     }
 }
