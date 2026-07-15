@@ -4,6 +4,10 @@
 
 extension ABI.AppUserLevel: AppFeatureProviding {
     public var features: [ABI.AppFeature] {
+        if CouponEntitlement.isRedeemed() {
+            return ABI.AppFeature.allCases
+        }
+
         switch self {
         case .beta:
             return [
