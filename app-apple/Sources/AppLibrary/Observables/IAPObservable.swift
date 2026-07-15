@@ -21,13 +21,14 @@ public final class IAPObservable {
 
     public init(abi: AppABIIAPProtocol) {
         self.abi = abi
-        isEnabled = true
+        let couponUnlocked = CouponCodeUnlocker.isRedeemed
+        isEnabled = !couponUnlocked
         isLoadingReceipt = true
         isBeta = false
         purchasedProducts = []
-        eligibleFeatures = []
+        eligibleFeatures = couponUnlocked ? Set(ABI.AppFeature.allCases) : []
         isEligibleForComplete = false
-        isEligibleForFeedback = false
+        isEligibleForFeedback = couponUnlocked
     }
 }
 
@@ -35,7 +36,7 @@ public final class IAPObservable {
 
 extension IAPObservable {
     public func enable(_ isEnabled: Bool) {
-        abi.enable(isEnabled)
+        abi.enable(CouponCodeUnlocker.isRedeemed ? false : isEnabled)
     }
 
     public func purchase(_ storeProduct: ABI.StoreProduct) async throws -> ABI.StoreResult {
@@ -43,6 +44,9 @@ extension IAPObservable {
     }
 
     public func verify(_ profile: Profile, extra: Set<ABI.AppFeature>?) throws {
+        guard !CouponCodeUnlocker.isRedeemed else {
+            return
+        }
         try abi.verify(profile, extra: extra)
     }
 
@@ -52,6 +56,16 @@ extension IAPObservable {
 
     public func restorePurchases() async throws {
         try await abi.restorePurchases()
+    }
+
+    @discardableResult
+    public func redeemCoupon(_ code: String) -> Bool {
+        guard CouponCodeUnlocker.redeem(code) else {
+            return false
+        }
+        applyCouponUnlock()
+        abi.enable(false)
+        return true
     }
 }
 
@@ -71,6 +85,10 @@ extension IAPObservable {
 
     public var verificationDelayMinutes: Int {
         abi.verificationDelayMinutes
+    }
+
+    public var isCouponUnlocked: Bool {
+        CouponCodeUnlocker.isRedeemed
     }
 
     public func isEligible(for feature: ABI.AppFeature) -> Bool {
@@ -96,7 +114,7 @@ extension IAPObservable {
     func onUpdate(_ event: ABI.IAPEvent) {
         switch event {
         case .status(let payload):
-            isEnabled = payload.isEnabled
+            isEnabled = CouponCodeUnlocker.isRedeemed ? false : payload.isEnabled
         case .loadReceipt(let payload):
             isLoadingReceipt = payload.isLoading
         case .newReceipt(let payload):
@@ -104,9 +122,21 @@ extension IAPObservable {
             purchasedProducts = payload.products
             isBeta = payload.isBeta
         case .eligibleFeatures(let payload):
-            eligibleFeatures = Set(payload.features)
-            isEligibleForComplete = payload.forComplete
-            isEligibleForFeedback = payload.forFeedback
+            if CouponCodeUnlocker.isRedeemed {
+                applyCouponUnlock()
+            } else {
+                eligibleFeatures = Set(payload.features)
+                isEligibleForComplete = payload.forComplete
+                isEligibleForFeedback = payload.forFeedback
+            }
         }
+    }
+}
+
+private extension IAPObservable {
+    func applyCouponUnlock() {
+        eligibleFeatures = Set(ABI.AppFeature.allCases)
+        isEligibleForComplete = false
+        isEligibleForFeedback = true
     }
 }
