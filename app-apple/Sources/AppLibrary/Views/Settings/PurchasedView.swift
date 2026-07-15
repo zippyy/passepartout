@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0
 
 import CommonLibrary
+import Foundation
 import SwiftUI
 
 public struct PurchasedView: View {
@@ -23,9 +24,6 @@ public struct PurchasedView: View {
 
     @State
     private var couponMessage: String?
-
-    @State
-    private var isCouponError = false
 
     @State
     private var errorHandler: ErrorHandler = .default()
@@ -149,7 +147,7 @@ private extension PurchasedView {
 
                 if let couponMessage {
                     Text(couponMessage)
-                        .foregroundStyle(isCouponError ? .red : .secondary)
+                        .foregroundStyle(.red)
                 }
             }
         }
@@ -173,11 +171,9 @@ private extension PurchasedView {
     func redeemCoupon() {
         if iapObservable.redeemCoupon(couponCode) {
             couponCode = ""
-            couponMessage = "Coupon accepted."
-            isCouponError = false
+            couponMessage = nil
         } else {
             couponMessage = "That coupon code is invalid."
-            isCouponError = true
         }
     }
 }
