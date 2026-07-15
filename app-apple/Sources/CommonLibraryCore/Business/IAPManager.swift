@@ -151,8 +151,11 @@ extension IAPManager {
 
     public func reloadReceipt() async {
         guard isEnabled else {
+            await fetchLevelIfNeeded()
             purchasedProducts = []
-            eligibleFeatures = []
+            var features = Set(userLevel.features)
+            features.formUnion(unrestrictedFeatures)
+            eligibleFeatures = features
             return
         }
         if let pendingReceiptTask {
