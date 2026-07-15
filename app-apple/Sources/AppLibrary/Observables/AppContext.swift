@@ -65,11 +65,6 @@ public final class AppContext {
         let handler = ABI.EventHandler(context: opaqueEnvironment, callback: Self.abiCallback)
         abi.registerEvents(handler)
 
-        // Restore a previously redeemed coupon before observing the tunnel.
-        if iapObservable.isCouponUnlocked {
-            iapObservable.enable(false)
-        }
-
         // Register for tunnel events
         tunnelObservable.observeObjects()
     }
