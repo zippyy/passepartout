@@ -22,7 +22,7 @@ public final class IAPObservable {
     public init(abi: AppABIIAPProtocol) {
         self.abi = abi
         let couponUnlocked = CouponCodeUnlocker.isRedeemed
-        isEnabled = !couponUnlocked
+        isEnabled = true
         isLoadingReceipt = true
         isBeta = false
         purchasedProducts = []
@@ -36,7 +36,7 @@ public final class IAPObservable {
 
 extension IAPObservable {
     public func enable(_ isEnabled: Bool) {
-        abi.enable(CouponCodeUnlocker.isRedeemed ? false : isEnabled)
+        abi.enable(isEnabled)
     }
 
     public func purchase(_ storeProduct: ABI.StoreProduct) async throws -> ABI.StoreResult {
@@ -59,12 +59,12 @@ extension IAPObservable {
     }
 
     @discardableResult
-    public func redeemCoupon(_ code: String) -> Bool {
+    public func redeemCoupon(_ code: String) async -> Bool {
         guard CouponCodeUnlocker.redeem(code) else {
             return false
         }
         applyCouponUnlock()
-        abi.enable(false)
+        await abi.reloadReceipt()
         return true
     }
 }
@@ -114,7 +114,7 @@ extension IAPObservable {
     func onUpdate(_ event: ABI.IAPEvent) {
         switch event {
         case .status(let payload):
-            isEnabled = CouponCodeUnlocker.isRedeemed ? false : payload.isEnabled
+            isEnabled = payload.isEnabled
         case .loadReceipt(let payload):
             isLoadingReceipt = payload.isLoading
         case .newReceipt(let payload):
