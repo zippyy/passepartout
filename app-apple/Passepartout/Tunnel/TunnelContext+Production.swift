@@ -4,6 +4,7 @@
 
 #if canImport(CommonLibraryApple)
 import CommonLibrary
+import Foundation
 import NetworkExtension
 import Partout
 import PartoutRuntime
@@ -57,7 +58,13 @@ extension TunnelContext {
             betaChecker: appConfiguration.makeBetaChecker()
         )
         await iapManager.fetchLevelIfNeeded()
-        let skipsPurchases = !appConfiguration.bundle.distributionTarget.supportsIAP || preferences[\.skipsPurchases]
+        let couponDefaults = UserDefaults(
+            suiteName: appConfiguration.bundle.bundleString(for: .groupId)
+        )
+        let hasCoupon = couponDefaults.map {
+            CouponEntitlement.isRedeemed(in: $0)
+        } ?? false
+        let skipsPurchases = hasCoupon || !appConfiguration.bundle.distributionTarget.supportsIAP || preferences[\.skipsPurchases]
         let verificationParameters = appConfiguration.constants.tunnel.verificationParameters(isBeta: iapManager.isBeta)
         let iap = TunnelContext.IAP(
             manager: iapManager,
