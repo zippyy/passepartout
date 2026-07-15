@@ -19,6 +19,15 @@ public struct PurchasedView: View {
     private var products: [ABI.StoreProduct] = []
 
     @State
+    private var couponCode = ""
+
+    @State
+    private var couponMessage: String?
+
+    @State
+    private var isCouponError = false
+
+    @State
     private var errorHandler: ErrorHandler = .default()
 
     public init() {
@@ -79,6 +88,7 @@ private extension PurchasedView {
             downloadSection
             productsSection
             featuresSection
+            couponSection
             if appConfiguration.bundle.distributionTarget.supportsIAP && !iapObservable.isBeta {
                 restoreSection
             }
@@ -121,6 +131,36 @@ private extension PurchasedView {
         .themeSection(header: Strings.Global.Nouns.features)
     }
 
+    var couponSection: some View {
+        Group {
+            if iapObservable.isCouponUnlocked {
+                HStack {
+                    Text("Paid features unlocked")
+                    Spacer()
+                    ThemeImage(.marked)
+                }
+                .foregroundStyle(.primary)
+            } else {
+                TextField("Coupon code", text: $couponCode)
+                Button("Redeem coupon") {
+                    redeemCoupon()
+                }
+                .disabled(couponCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                if let couponMessage {
+                    Text(couponMessage)
+                        .foregroundStyle(isCouponError ? .red : .secondary)
+                }
+            }
+        }
+        .themeSection(
+            header: "Coupon code",
+            footer: iapObservable.isCouponUnlocked
+                ? "This device has access to all paid features."
+                : "Enter a valid coupon code to unlock all paid features on this device."
+        )
+    }
+
     var restoreSection: some View {
         RestorePurchasesButton(errorHandler: errorHandler)
             .themeContainerWithSingleEntry(
@@ -128,6 +168,17 @@ private extension PurchasedView {
                 footer: Strings.Views.Paywall.Sections.Restore.footer,
                 isAction: true
             )
+    }
+
+    func redeemCoupon() {
+        if iapObservable.redeemCoupon(couponCode) {
+            couponCode = ""
+            couponMessage = "Coupon accepted."
+            isCouponError = false
+        } else {
+            couponMessage = "That coupon code is invalid."
+            isCouponError = true
+        }
     }
 }
 
