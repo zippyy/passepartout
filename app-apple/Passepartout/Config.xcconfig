@@ -38,6 +38,9 @@ CFG_CLOUDKIT_ID = $(CFG_CLOUDKIT_ROOT).v3
 // StoreKit
 CFG_IAP_BUNDLE_PREFIX = $(CFG_APP_ID)
 
+// Coupons (SHA-256 of the normalized coupon code)
+CFG_COUPON_CODE_HASH = b2e17c4de96799252ddd6b70328a1b115922994aec7a46d18009de6eb8ed08cb
+
 PATH = $(PATH):/opt/homebrew/bin:/usr/local/bin
 CUSTOM_SCRIPT_PATH = $(PATH)
 
